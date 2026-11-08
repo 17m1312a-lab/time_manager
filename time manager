@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPG Time Management</title>
+  <!-- Tailwind CSS & Chart.js CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8 font-sans">
+
+  <div class="max-w-4xl mx-auto space-y-6">
+
+    <!-- ヘッダー＆勇者エリア -->
+    <header class="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl flex flex-col sm:flex-row items-center gap-6">
+      <div class="relative flex-shrink-0">
+        <!-- 勇者画像エリア（画像読込失敗時は自動で絵文字にフォールバック） -->
+        <div class="w-20 h-20 bg-amber-500/10 border-2 border-amber-400 rounded-2xl flex items-center justify-center p-1 shadow-lg shadow-amber-500/10 animate-pulse overflow-hidden relative">
+          <img src="image_5.png" alt="勇者" class="h-full w-auto object-contain" onerror="this.style.display='none'; document.getElementById('fallback-hero').style.display='flex';">
+          <span id="fallback-hero" class="text-4xl absolute inset-0 items-center justify-center" style="display:none;">🧞‍♂️</span>
+        </div>
+        <span class="absolute -bottom-2 -right-2 bg-amber-500 text-slate-950 font-extrabold text-xs px-2.5 py-0.5 rounded-full shadow">
+          Lv.<span id="player-level">1</span>
+        </span>
+      </div>
+      <div class="flex-1 w-full text-center sm:text-left">
+        <div class="bg-slate-700/60 border border-slate-600 rounded-xl p-3 relative mb-2">
+          <p id="hero-quote" class="text-amber-300 text-sm font-bold">「今日の経験値を積み上げよう！」</p>
+        </div>
+        <h1 class="text-2xl font-black tracking-wide text-white">プレイヤーレベル: <span id="player-level-text" class="text-amber-400">1</span></h1>
+      </div>
+    </header>
+
+    <!-- ストップウォッチ ＆ 日付指定手動入力 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      
+      <!-- ストップウォッチカード -->
+      <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-lg flex flex-col justify-between">
+        <div>
+          <h2 class="text-lg font-bold mb-3 text-emerald-400 flex items-center gap-2">
+            <span>⏱️</span> リアルタイム計測（本日分）
+          </h2>
+          <div class="flex gap-2 mb-4">
+            <select id="timer-category" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-400 flex-1">
+              <option value="study">勉強 (INT)</option>
+              <option value="workout">運動 (STR)</option>
+            </select>
+          </div>
+          <div class="text-center py-4 bg-slate-900/60 rounded-xl border border-slate-700/50 mb-4">
+            <span id="timer-display" class="font-mono text-4xl font-black text-white">00:00:00</span>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <button id="btn-start" onclick="toggleTimer()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">開始</button>
+          <button id="btn-save-timer" onclick="saveTimerLog()" disabled class="flex-1 bg-slate-700 text-slate-400 font-bold py-2.5 rounded-xl transition cursor-not-allowed">本日分として保存</button>
+        </div>
+      </div>
+
+      <!-- 手動入力カード（日付指定対応） -->
+      <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-lg flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-lg font-bold text-indigo-400 flex items-center gap-2">
+              <span>📅</span> 活動記録（日付指定）
+            </h2>
+          </div>
+
+          <!-- 日付選択 -->
+          <div class="mb-3 bg-slate-900/80 p-2.5 rounded-xl border border-indigo-500/30 flex items-center gap-2">
+            <label class="text-xs text-indigo-300 font-bold whitespace-nowrap">対象日付:</label>
+            <input type="date" id="input-date" onchange="loadDateLogs()" class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-white flex-1 focus:outline-none focus:border-indigo-400">
+          </div>
+
+          <!-- 入力フォーム -->
+          <form id="manual-form" class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <label class="text-slate-400">勉強 (INT):</label>
+              <input type="number" id="input-study" min="0" placeholder="分" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white">
+            </div>
+            <div>
+              <label class="text-slate-400">運動 (STR):</label>
+              <input type="number" id="input-workout" min="0" placeholder="分" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white">
+            </div>
+            <div>
+              <label class="text-slate-400">本業 (MAIN):</label>
+              <input type="number" id="input-main" min="0" placeholder="分" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white">
+            </div>
+            <div>
+              <label class="text-slate-400">副業 (SIDE):</label>
+              <input type="number" id="input-side" min="0" placeholder="分" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white">
+            </div>
+            <div>
+              <label class="text-slate-400">睡眠・休息 (REC):</label>
+              <input type="number" id="input-rec" min="0" placeholder="分" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white">
+            </div>
+            <div>
+              <label class="text-slate-400">交際 (影響なし):</label>
+              <input type="number" id="input-social" min="0" placeholder="分" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-white">
+            </div>
+            <div class="col-span-2">
+              <label class="text-rose-400 font-semibold">悪い娯楽・SNS (ペナルティ):</label>
+              <input type="number" id="input-penalty" min="0" placeholder="分" class="w-full bg-slate-900 border border-rose-900/50 rounded p-1.5 text-white">
+            </div>
+          </form>
+        </div>
+
+        <!-- 保存ボタン -->
+        <button onclick="saveManualLogs()" class="w-full mt-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition cursor-pointer">
+          指定した日付で保存・更新
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ５つのステータス詳細エリア -->
+    <section class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-lg">
+      <h3 class="text-md font-bold text-amber-400 mb-4 flex items-center gap-2">
+        <span>📊</span> 5大ステータス詳細（レベル ＆ 累計EXP）
+      </h3>
+      <div id="status-details-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <!-- JSで動的生成 -->
+      </div>
+    </section>
+
+    <!-- ダッシュボード：期間フィルター ＆ グラフ分析 -->
+    <section class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-lg space-y-4">
+      
+      <!-- 最上部：期間選択フィルター -->
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-700 pb-3">
+        <h3 class="text-md font-bold text-slate-200 flex items-center gap-2">
+          <span>📈</span> ダッシュボード分析
+        </h3>
+        
+        <!-- 期間切替タブ -->
+        <div class="flex flex-wrap items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-700 text-xs">
+          <button id="tab-today" onclick="changePeriodTab('today')" class="px-3 py-1.5 rounded-lg font-bold transition bg-amber-500 text-slate-950 cursor-pointer">1日</button>
+          <button id="tab-week" onclick="changePeriodTab('week')" class="px-3 py-1.5 rounded-lg font-bold transition text-slate-400 hover:text-white cursor-pointer">今週</button>
+          <button id="tab-month" onclick="changePeriodTab('month')" class="px-3 py-1.5 rounded-lg font-bold transition text-slate-400 hover:text-white cursor-pointer">今月</button>
+          <button id="tab-custom" onclick="changePeriodTab('custom')" class="px-3 py-1.5 rounded-lg font-bold transition text-slate-400 hover:text-white cursor-pointer">期間指定</button>
+        </div>
+      </div>
+
+      <!-- カスタム日付指定フォーム（タブ選択時のみ表示） -->
+      <div id="custom-date-picker" class="hidden flex items-center gap-2 bg-slate-900/60 p-3 rounded-xl border border-slate-700 text-xs">
+        <label class="text-slate-400">開始:</label>
+        <input type="date" id="custom-start-date" onchange="renderCharts()" class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white">
+        <label class="text-slate-400">終了:</label>
+        <input type="date" id="custom-end-date" onchange="renderCharts()" class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white">
+      </div>
+
+      <!-- グラフ群 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+        <!-- レーダーチャート（5角形） -->
+        <div class="flex flex-col items-center justify-center">
+          <p class="text-xs text-amber-400 font-bold mb-2">5角形パラメータチャート</p>
+          <div class="w-full aspect-square max-w-[240px]">
+            <canvas id="radarChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 積み上げ棒グラフ ＆ 円グラフ -->
+        <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <p class="text-xs text-slate-400 text-center mb-1">行動時間の積み上げ推移 (h)</p>
+            <canvas id="barChart" class="max-h-48"></canvas>
+          </div>
+          <div>
+            <p class="text-xs text-slate-400 text-center mb-1">24時間時間配分シェア (%)</p>
+            <canvas id="pieChart" class="max-h-48"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 称号・実績（トロフィー）一覧 -->
+    <section class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-lg">
+      <h3 class="text-md font-bold text-amber-400 mb-4 flex items-center gap-2">
+        <span>🏆</span> 獲得称号・実績リスト
+      </h3>
+      <div id="trophy-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+        <!-- JSで動的生成 -->
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // --- 状態管理 ＆ 倍率定義 ---
+    let logs = JSON.parse(localStorage.getItem('rpg_time_logs')) || [];
+    let currentTab = 'today';
+
+    const EXP_RATES = {
+      study: 1.0,     // INT
+      workout: 1.5,   // STR
+      main: 0.5,      // MAIN (本業)
+      side: 1.0,      // SIDE (副業)
+      rec: 0.5,       // REC (回復)
+      social: 0,      // ステータス影響なし
+      penalty: -2.0   // ペナルティ
+    };
+
+    // 勇者の名言・金言30選
+    const HERO_QUOTES = [
+      "「千里の道も、一歩の継続から始まる。」",
+      "「今日の小さな積み重ねが、未来の最強の自分を作る。」",
+      "「怠惰な誘惑に負けるな、お前のレベルはまだ上げられる！」",
+      "「休むことも、次の勝利に向けた重要な戦略だ。」",
+      "「Learning is self-denial.」",
+      "「困難なクエストほど、達成した時の経験値は旨い。」",
+      "「昨日の自分を超えること、それが真の冒険者の証だ。」",
+      "「Pretend to be stupid.」",
+      "「汗を流した分だけ、世界は君に微笑みかける。」",
+      "「泥臭い作業こそ、大いなるレベルアップの糧となる。」",
+      "「頭脳を磨き続けろ。知恵はどんな武器よりも強い。」",
+      "「肉体を鍛えよ。強靭な意志は、強靭な肉体に宿る。」",
+      "「小さな一歩が、未来の自由を築く。」",
+      "「睡眠を削るな。最高の回復こそが、明日への最大の攻撃力だ。」",
+      "「Don't show your effort to others.」",
+      "「凡事徹底。当たり前の毎日の継続こそが最大の武器である。」",
+      "「焦る必要はない。ただ、今日やるべきことをこなせばいい。」",
+      "「失敗は経験値。すべての敗北は、次への勝利の布石だ。」",
+      "「選んだ道を正解にするのは、これからの君の行動力だけだ。」",
+      "「Don't talk about the current situation.」",
+      "「タイマーのスタートボタンを押す、その瞬間から奇跡は始まる。」",
+      "「楽な道を選ぶな。痛みのないところに本当の栄光はない。」",
+      "「時間を支配する者が、人生のすべてを制覇する。」",
+      "「どんなに忙しくても、5分の前進は0分より圧倒的に尊い。」",
+      "「Anger is caused by lack of learning.」",
+      "「目先の誘惑を断ち切った夜、君のレベルは一段階跳ね上がる。」",
+      "「記録をつける。それだけで、君は自分の人生の主人公になれる。」",
+      "「試練は君を壊すためではなく、より強靭にするために訪れる。」",
+      "「今日という一日は、二度と手に入らない。」",
+      "「信じろ。毎日の継続は、いつか必ず伝説の景色を見せてくれる。」"
+    ];
+
+    // --- 累計EXP・スキルレベル計算 ---
+    function getCategoryTotalEXP(category) {
+      return logs.filter(l => l.category === category).reduce((sum, l) => {
+        const rate = EXP_RATES[category] || 0;
+        return sum + (l.minutes * rate);
+      }, 0);
+    }
+
+    function calcSkillLevel(exp) {
+      if (!exp || exp <= 0) return 1;
+      return Math.floor((1 + Math.sqrt(1 + (8 * exp) / 100)) / 2);
+    }
+
+    function getReqEXPForLevel(level) {
+      if (level <= 1) return 0;
+      return ((level - 1) * level / 2) * 100;
+    }
+
+    function getSkillLevels() {
+      const expInt = getCategoryTotalEXP('study');
+      const expMain = getCategoryTotalEXP('main');
+      const expSide = getCategoryTotalEXP('side');
+      const expStr = getCategoryTotalEXP('workout');
+      const expRec = getCategoryTotalEXP('rec');
+
+      return {
+        INT: { lv: calcSkillLevel(expInt), exp: Math.max(0, expInt) },
+        MAIN: { lv: calcSkillLevel(expMain), exp: Math.max(0, expMain) },
+        SIDE: { lv: calcSkillLevel(expSide), exp: Math.max(0, expSide) },
+        STR: { lv: calcSkillLevel(expStr), exp: Math.max(0, expStr) },
+        REC: { lv: calcSkillLevel(expRec), exp: Math.max(0, expRec) }
+      };
+    }
+
+    function updatePlayerLevel() {
+      const lvs = getSkillLevels();
+      const avgLevel = Math.floor((lvs.INT.lv + lvs.MAIN.lv + lvs.SIDE.lv + lvs.STR.lv + lvs.REC.lv) / 5);
+      
+      const elLv = document.getElementById('player-level');
+      const elLvText = document.getElementById('player-level-text');
+      if (elLv) elLv.innerText = avgLevel;
+      if (elLvText) elLvText.innerText = avgLevel;
+
+      renderStatusDetails();
+      renderTrophies(avgLevel);
+    }
+
+    // --- ５つのステータス詳細カード描画 ---
+    function renderStatusDetails() {
+      const lvs = getSkillLevels();
+      const stats = [
+        { key: 'INT', name: '勉強 (INT)', icon: '📚', data: lvs.INT },
+        { key: 'MAIN', name: '本業 (MAIN)', icon: '💼', data: lvs.MAIN },
+        { key: 'SIDE', name: '副業 (SIDE)', icon: '🚀', data: lvs.SIDE },
+        { key: 'STR', name: '運動 (STR)', icon: '⚔️', data: lvs.STR },
+        { key: 'REC', name: '回復 (REC)', icon: '🛌', data: lvs.REC }
+      ];
+
+      const container = document.getElementById('status-details-container');
+      if (!container) return;
+
+      container.innerHTML = stats.map(s => {
+        const curLv = s.data.lv;
+        const curExp = Math.round(s.data.exp);
+        const curLevelReq = getReqEXPForLevel(curLv);
+        const nextLevelReq = getReqEXPForLevel(curLv + 1);
+        
+        const expInCurrentLevel = curExp - curLevelReq;
+        const reqForNextLevel = nextLevelReq - curLevelReq;
+        const progress = Math.min(100, Math.max(0, Math.floor((expInCurrentLevel / reqForNextLevel) * 100))) || 0;
+        
+        // 次のレベルまでの残りEXP計算
+        const remainingExp = Math.max(0, nextLevelReq - curExp);
+
+        return `
+          <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700 text-xs flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="font-bold text-slate-200">${s.icon} ${s.name}</span>
+                <span class="font-black text-amber-400">Lv.${curLv}</span>
+              </div>
+              <p class="text-[10px] text-slate-400 mb-2">累計: ${curExp} EXP</p>
+            </div>
+            <div>
+              <div class="w-full bg-slate-800 rounded-full h-1.5 border border-slate-700 overflow-hidden mb-1">
+                <div class="bg-amber-400 h-1.5 rounded-full" style="width: ${progress}%"></div>
+              </div>
+              <p class="text-[9px] text-slate-400 text-right">次Lvまであと ${remainingExp} EXP</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // --- 連続日数や条件判定用の補助関数 ---
+    function checkConsecutiveDays(category, minMinutes, requiredDays) {
+      const uniqueDates = [...new Set(logs.map(l => l.date))].sort();
+      let currentStreak = 0;
+      let maxStreak = 0;
+
+      for (let date of uniqueDates) {
+        const dayTotal = logs
+          .filter(l => l.date === date && l.category === category)
+          .reduce((sum, l) => sum + l.minutes, 0);
+
+        if (dayTotal >= minMinutes) {
+          currentStreak++;
+          if (currentStreak > maxStreak) maxStreak = currentStreak;
+        } else {
+          currentStreak = 0;
+        }
+      }
+      return maxStreak >= requiredDays;
+    }
+
+    function checkDailyRecExceed(targetMinutes) {
+      const dateMap = {};
+      logs.forEach(l => {
+        if (l.category === 'rec') {
+          dateMap[l.date] = (dateMap[l.date] || 0) + l.minutes;
+        }
+      });
+      return Object.values(dateMap).some(mins => mins >= targetMinutes);
+    }
+
+ // --- 100個の称号・実績描画（No.001〜No.100 統一デザイン版） ---
+    function renderTrophies(playerLv) {
+      const lvs = getSkillLevels();
+      
+      const totalStudyMin = getCategoryTotalEXP('study') / (EXP_RATES.study || 1);
+      const totalWorkoutMin = getCategoryTotalEXP('workout') / (EXP_RATES.workout || 1);
+      const totalSideMin = getCategoryTotalEXP('side') / (EXP_RATES.side || 1);
+      const totalMainMin = getCategoryTotalEXP('main') / (EXP_RATES.main || 0.5);
+      const totalRecMin = getCategoryTotalEXP('rec') / (EXP_RATES.rec || 0.5);
+      const penaltyMinutes = logs.filter(l => l.category === 'penalty').reduce((sum, l) => sum + l.minutes, 0);
+
+      const allTrophies = [
+        { name: "No.001：[LOG] 🎖️ 最初の一歩", desc: "初めてログを保存した", unlocked: logs.length > 0 },
+        { name: "No.002：[LV] 🌱 駆け出しの冒険者", desc: "プレイヤーレベル5達成", unlocked: playerLv >= 5 },
+        { name: "No.003：[INT] 📖 知恵の芽吹き", desc: "INT(勉強) Lv.5達成", unlocked: lvs.INT.lv >= 5 },
+        { name: "No.004：[STR] 👟 見習いアスリート", desc: "STR(運動) Lv.5達成", unlocked: lvs.STR.lv >= 5 },
+        { name: "No.005：[MAIN] 📋 社内の新星", desc: "MAIN(本業) Lv.5達成", unlocked: lvs.MAIN.lv >= 5 },
+        { name: "No.006：[SIDE] 🪙 商人の卵", desc: "SIDE(副業) Lv.5達成", unlocked: lvs.SIDE.lv >= 5 },
+        { name: "No.007：[REC] ☕ 休日の賢者", desc: "REC(回復) Lv.5達成", unlocked: lvs.REC.lv >= 5 },
+        { name: "No.008：[LV] 🥉 銅の冒険者", desc: "プレイヤーレベル10達成", unlocked: playerLv >= 10 },
+        { name: "No.009：[INT] 📜 知の探求者", desc: "INT(勉強) Lv.10達成", unlocked: lvs.INT.lv >= 10 },
+        { name: "No.010：[STR] 🛡️ 鉄の肉体", desc: "STR(運動) Lv.10達成", unlocked: lvs.STR.lv >= 10 },
+        { name: "No.011：[MAIN] 💼 信頼のビジネスパーソン", desc: "MAIN(本業) Lv.10達成", unlocked: lvs.MAIN.lv >= 10 },
+        { name: "No.012：[SIDE] 💡 起業家精神", desc: "SIDE(副業) Lv.10達成", unlocked: lvs.SIDE.lv >= 10 },
+        { name: "No.013：[REC] 🌙 熟睡の匠", desc: "REC(回復) Lv.10達成", unlocked: lvs.REC.lv >= 10 },
+        { name: "No.014：[LV] 🥈 銀の冒険者", desc: "プレイヤーレベル30達成", unlocked: playerLv >= 30 },
+        { name: "No.015：[INT] 🔮 魔導士の素質", desc: "INT(勉強) Lv.30達成", unlocked: lvs.INT.lv >= 30 },
+        { name: "No.016：[STR] ⚔️ 百戦錬磨", desc: "STR(運動) Lv.30達成", unlocked: lvs.STR.lv >= 30 },
+        { name: "No.017：[MAIN] 🏢 ベテラン社員", desc: "MAIN(本業) Lv.30達成", unlocked: lvs.MAIN.lv >= 30 },
+        { name: "No.018：[SIDE] 📈 敏腕実業家", desc: "SIDE(副業) Lv.30達成", unlocked: lvs.SIDE.lv >= 30 },
+        { name: "No.019：[REC] 🌌 夢幻の眠り", desc: "REC(回復) Lv.30達成", unlocked: lvs.REC.lv >= 30 },
+        { name: "No.020：[LV] 🥇 黄金の冒険者", desc: "プレイヤーレベル50達成", unlocked: playerLv >= 50 },
+        { name: "No.021：[INT] 🔮 大賢者への道", desc: "INT(勉強) Lv.50達成", unlocked: lvs.INT.lv >= 50 },
+        { name: "No.022：[STR] 🔥 闘神", desc: "STR(運動) Lv.50達成", unlocked: lvs.STR.lv >= 50 },
+        { name: "No.023：[MAIN] 👔 エグゼクティブ", desc: "MAIN(本業) Lv.50達成", unlocked: lvs.MAIN.lv >= 50 },
+        { name: "No.024：[SIDE] 💎 億万の商機", desc: "SIDE(副業) Lv.50達成", unlocked: lvs.SIDE.lv >= 50 },
+        { name: "No.025：[REC] 💤 神々の休息", desc: "REC(回復) Lv.50達成", unlocked: lvs.REC.lv >= 50 },
+        { name: "No.026：[LV] 🦁 百獣の王", desc: "プレイヤーレベル100達成", unlocked: playerLv >= 100 },
+        { name: "No.027：[INT] 🧠 全知全能の頭脳", desc: "INT(勉強) Lv.100達成", unlocked: lvs.INT.lv >= 100 },
+        { name: "No.028：[STR] ⚡ 無敵の肉体", desc: "STR(運動) Lv.100達成", unlocked: lvs.STR.lv >= 100 },
+        { name: "No.029：[MAIN] 🌐 業界の覇者", desc: "MAIN(本業) Lv.100達成", unlocked: lvs.MAIN.lv >= 100 },
+        { name: "No.030：[SIDE] 👑 大帝国オーナー", desc: "SIDE(副業) Lv.100達成", unlocked: lvs.SIDE.lv >= 100 },
+        { name: "No.031：[REC] 🌿 不滅の生命力", desc: "REC(回復) Lv.100達成", unlocked: lvs.REC.lv >= 100 },
+        { name: "No.032：[LV] 🌟 星屑の英雄", desc: "プレイヤーレベル150達成", unlocked: playerLv >= 150 },
+        { name: "No.033：[INT] 🌠 星読みの賢者", desc: "INT(勉強) Lv.150達成", unlocked: lvs.INT.lv >= 150 },
+        { name: "No.034：[STR] ☄️ 超人", desc: "STR(運動) Lv.150達成", unlocked: lvs.STR.lv >= 150 },
+        { name: "No.035：[MAIN] 🏛️ 伝説の経営者", desc: "MAIN(本業) Lv.150達成", unlocked: lvs.MAIN.lv >= 150 },
+        { name: "No.036：[SIDE] 🌍 ワールドビジネス王", desc: "SIDE(副業) Lv.150達成", unlocked: lvs.SIDE.lv >= 150 },
+        { name: "No.037：[REC] 🕊️ 悠久の眠り", desc: "REC(回復) Lv.150達成", unlocked: lvs.REC.lv >= 150 },
+        { name: "No.038：[LV] 🌕 月面の覇者", desc: "プレイヤーレベル200達成", unlocked: playerLv >= 200 },
+        { name: "No.039：[INT] 🌌 宇宙の理を知る者", desc: "INT(勉強) Lv.200達成", unlocked: lvs.INT.lv >= 200 },
+        { name: "No.040：[STR] 🌋 神話級の肉体", desc: "STR(運動) Lv.200達成", unlocked: lvs.STR.lv >= 200 },
+        { name: "No.041：[MAIN] 🏙️ 神域のビジネスマン", desc: "MAIN(本業) Lv.200達成", unlocked: lvs.MAIN.lv >= 200 },
+        { name: "No.042：[SIDE] 🪐 多元宇宙の商人", desc: "SIDE(副業) Lv.200達成", unlocked: lvs.SIDE.lv >= 200 },
+        { name: "No.043：[REC] 👼 聖者の休息", desc: "REC(回復) Lv.200達成", unlocked: lvs.REC.lv >= 200 },
+        { name: "No.044：[LV] ☀️ 太陽系の守護者", desc: "プレイヤーレベル250達成", unlocked: playerLv >= 250 },
+        { name: "No.045：[INT] 📖 アカシックレコード", desc: "INT(勉強) Lv.2500達成", unlocked: lvs.INT.lv >= 2500 },
+        { name: "No.046：[STR] 🌠 創世のファイター", desc: "STR(運動) Lv.250達成", unlocked: lvs.STR.lv >= 250 },
+        { name: "No.047：[MAIN] 🛸 次元を超える統率者", desc: "MAIN(本業) Lv.250達成", unlocked: lvs.MAIN.lv >= 250 },
+        { name: "No.048：[SIDE] 🌌 万物創造の商会", desc: "SIDE(副業) Lv.250達成", unlocked: lvs.SIDE.lv >= 250 },
+        { name: "No.049：[REC] 🔮 永遠の生命", desc: "REC(回復) Lv.250達成", unlocked: lvs.REC.lv >= 250 },
+        { name: "No.050：[LV] 🛸 銀河系チャンピオン", desc: "プレイヤーレベル300達成", unlocked: playerLv >= 300 },
+        { name: "No.051：[INT] 🔮 無限の知性", desc: "INT(勉強) Lv.300達成", unlocked: lvs.INT.lv >= 300 },
+        { name: "No.052：[STR] 🌌 次元を超えし肉体", desc: "STR(運動) Lv.300達成", unlocked: lvs.STR.lv >= 300 },
+        { name: "No.053：[MAIN] 🌠 全銀河CEO", desc: "MAIN(本業) Lv.300達成", unlocked: lvs.MAIN.lv >= 300 },
+        { name: "No.054：[SIDE] 🪐 宇宙規模のトレード", desc: "SIDE(副業) Lv.300達成", unlocked: lvs.SIDE.lv >= 300 },
+        { name: "No.055：[REC] 🌌 宇宙の安らぎ", desc: "REC(回復) Lv.300達成", unlocked: lvs.REC.lv >= 300 },
+        { name: "No.056：[LV] 🌀 次元の支配者", desc: "プレイヤーレベル400達成", unlocked: playerLv >= 400 },
+        { name: "No.057：[INT] 👁️ 真理の体得者", desc: "INT(勉強) Lv.400達成", unlocked: lvs.INT.lv >= 400 },
+        { name: "No.058：[STR] ⚡ 神話の戦士", desc: "STR(運動) Lv.400達成", unlocked: lvs.STR.lv >= 400 },
+        { name: "No.059：[MAIN] 🏢 次元企業統括", desc: "MAIN(本業) Lv.400達成", unlocked: lvs.MAIN.lv >= 400 },
+        { name: "No.060：[SIDE] 💹 神業の投資家", desc: "SIDE(副業) Lv.400達成", unlocked: lvs.SIDE.lv >= 400 },
+        { name: "No.061：[REC] 🌌 虚空の静寂", desc: "REC(回復) Lv.400達成", unlocked: lvs.REC.lv >= 400 },
+        { name: "No.062：[LV] 👑 全知全能の神", desc: "プレイヤーレベル500達成", unlocked: playerLv >= 500 },
+        { name: "No.063：[INT] 🌌 宇宙創世の知恵", desc: "INT(勉強) Lv.500達成", unlocked: lvs.INT.lv >= 500 },
+        { name: "No.064：[STR] ☄️ 創世の拳", desc: "STR(運動) Lv.500達成", unlocked: lvs.STR.lv >= 500 },
+        { name: "No.065：[MAIN] 🪐 全次元統治者", desc: "MAIN(本業) Lv.500達成", unlocked: lvs.MAIN.lv >= 500 },
+        { name: "No.066：[SIDE] 🌠 全宇宙商業神", desc: "SIDE(副業) Lv.500達成", unlocked: lvs.SIDE.lv >= 500 },
+        { name: "No.067：[REC] 💤 究極の安眠", desc: "REC(回復) Lv.500達成", unlocked: lvs.REC.lv >= 500 },
+        { name: "No.068：[LV] ✨ 超越者", desc: "プレイヤーレベル600達成", unlocked: playerLv >= 600 },
+        { name: "No.069：[INT] 🌀 理の超越", desc: "INT(勉強) Lv.600達成", unlocked: lvs.INT.lv >= 600 },
+        { name: "No.070：[STR] 🔥 無限の闘気", desc: "STR(運動) Lv.600達成", unlocked: lvs.STR.lv >= 600 },
+        { name: "No.071：[MAIN] ⏳ 時空を超える社畜", desc: "MAIN(本業) Lv.600達成", unlocked: lvs.MAIN.lv >= 600 },
+        { name: "No.072：[SIDE] 🛸 時空を超える商売", desc: "SIDE(副業) Lv.600達成", unlocked: lvs.SIDE.lv >= 600 },
+        { name: "No.073：[REC] 🍀 究極の癒やし", desc: "REC(回復) Lv.600達成", unlocked: lvs.REC.lv >= 600 },
+        { name: "No.074：[LV] 🌌 星々を束ねる者", desc: "プレイヤーレベル700達成", unlocked: playerLv >= 700 },
+        { name: "No.075：[INT] 📖 全知の王", desc: "INT(勉強) Lv.700達成", unlocked: lvs.INT.lv >= 700 },
+        { name: "No.076：[STR] 🛡️ 鋼鉄の神", desc: "STR(運動) Lv.700達成", unlocked: lvs.STR.lv >= 700 },
+        { name: "No.077：[MAIN] 💼 全次元の労働", desc: "MAIN(本業) Lv.700達成", unlocked: lvs.MAIN.lv >= 700 },
+        { name: "No.078：[SIDE] 💎 無限の富", desc: "SIDE(副業) Lv.700達成", unlocked: lvs.SIDE.lv >= 700 },
+        { name: "No.079：[REC] 🛌 至高の休息", desc: "REC(回復) Lv.700達成", unlocked: lvs.REC.lv >= 700 },
+        { name: "No.080：[LV] 🌠 銀河の統帥", desc: "プレイヤーレベル800達成", unlocked: playerLv >= 800 },
+        { name: "No.081：[INT] 🔭 宇宙の真理", desc: "INT(勉強) Lv.800達成", unlocked: lvs.INT.lv >= 800 },
+        { name: "No.082：[STR] ⚡ 無敵の肉体神", desc: "STR(運動) Lv.800達成", unlocked: lvs.STR.lv >= 800 },
+        { name: "No.083：[MAIN] 🏛️ 神々のビジネス", desc: "MAIN(本業) Lv.800達成", unlocked: lvs.MAIN.lv >= 800 },
+        { name: "No.084：[SIDE] ✨ 神々の副業", desc: "SIDE(副業) Lv.800達成", unlocked: lvs.SIDE.lv >= 800 },
+        { name: "No.085：[REC] 🌙 神々の睡眠", desc: "REC(回復) Lv.800達成", unlocked: lvs.REC.lv >= 800 },
+        { name: "No.086：[LV] 👑 全宇宙の覇王", desc: "プレイヤーレベル900達成", unlocked: playerLv >= 900 },
+        { name: "No.087：[INT] 🧠 究極の叡智", desc: "INT(勉強) Lv.900達成", unlocked: lvs.INT.lv >= 900 },
+        { name: "No.088：[STR] 💥 究極の肉体", desc: "STR(運動) Lv.900達成", unlocked: lvs.STR.lv >= 900 },
+        { name: "No.089：[MAIN] 🌐 全次元の最高経営責任者", desc: "MAIN(本業) Lv.900達成", unlocked: lvs.MAIN.lv >= 900 },
+        { name: "No.090：[SIDE] 🪙 全次元の商神", desc: "SIDE(副業) Lv.900達成", unlocked: lvs.SIDE.lv >= 900 },
+        { name: "No.091：[REC] 🕊️ 究極の安らぎ", desc: "REC(回復) Lv.900達成", unlocked: lvs.REC.lv >= 900 },
+        { name: "No.092：[LV] 🏆 伝説のグランドマスター", desc: "プレイヤーレベル1000達成", unlocked: playerLv >= 1000 },
+        { name: "No.093：[INT] 📜 知の極致", desc: "INT(勉強) Lv.1000達成", unlocked: lvs.INT.lv >= 1000 },
+        { name: "No.094：[STR] ⚔️ 武の極致", desc: "STR(運動) Lv.1000達成", unlocked: lvs.STR.lv >= 1000 },
+        { name: "No.095：[MAIN] 💼 本業の極み", desc: "MAIN(本業) Lv.1000達成", unlocked: lvs.MAIN.lv >= 1000 },
+        { name: "No.096：[SIDE] 🚀 副業の極み", desc: "SIDE(副業) Lv.1000達成", unlocked: lvs.SIDE.lv >= 1000 },
+        { name: "No.097：[REC] 🛌 回復の極み", desc: "REC(回復) Lv.1000達成", unlocked: lvs.REC.lv >= 1000 },
+        { name: "No.098：[LOG] ⏱️ 勉学の初心者", desc: "勉強時間500分達成", unlocked: totalStudyMin >= 500 },
+        { name: "No.099：[LOG] 🏋️ フィットネス初心者", desc: "運動時間500分達成", unlocked: totalWorkoutMin >= 500 },
+        { name: "No.100：[EX] 🏆 真の全制覇者", desc: "全ての称号をアンロックした", unlocked: false }
+      ];
+
+      // 「真の全制覇者」以外の全実績が解放されたか自動計算
+      const baseTrophies = allTrophies.slice(0, allTrophies.length - 1);
+      const allUnlocked = baseTrophies.every(t => t.unlocked);
+      allTrophies[allTrophies.length - 1].unlocked = allUnlocked;
+
+      // 獲得済みの称号のみ抽出
+      const unlockedTrophies = allTrophies.filter(t => t.unlocked);
+
+      const container = document.getElementById('trophy-container');
+      if (!container) return;
+
+      if (unlockedTrophies.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-500 col-span-full">まだ獲得した称号はありません。冒険を進めて称号を解放しよう！</p>`;
+        return;
+      }
+
+      container.innerHTML = unlockedTrophies.map(t => `
+        <div class="p-3 rounded-xl border text-xs flex flex-col justify-between bg-slate-700/60 border-amber-500/50 text-slate-200 shadow-sm">
+          <div>
+            <p class="font-bold text-amber-300 mb-0.5">${t.name}</p>
+            <p class="text-[10px] text-slate-300">${t.desc}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    // --- 期間切り替えタブ処理 ---
+    function changePeriodTab(tab) {
+      currentTab = tab;
+      ['today', 'week', 'month', 'custom'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        if (btn) {
+          if (t === tab) {
+            btn.className = 'px-3 py-1.5 rounded-lg font-bold transition bg-amber-500 text-slate-950 cursor-pointer';
+          } else {
+            btn.className = 'px-3 py-1.5 rounded-lg font-bold transition text-slate-400 hover:text-white cursor-pointer';
+          }
+        }
+      });
+
+      const customPicker = document.getElementById('custom-date-picker');
+      if (customPicker) {
+        if (tab === 'custom') {
+          customPicker.classList.remove('hidden');
+        } else {
+          customPicker.classList.add('hidden');
+        }
+      }
+
+      renderCharts();
+    }
+
+    // 日付範囲取得関数
+    function getDateRange() {
+      const today = new Date();
+      const formatDate = d => d.toISOString().split('T')[0];
+
+      if (currentTab === 'today') {
+        const sel = document.getElementById('input-date').value || formatDate(today);
+        return { start: sel, end: sel, dates: [sel] };
+      } else if (currentTab === 'week') {
+        const dates = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(today.getDate() - i);
+          dates.push(formatDate(d));
+        }
+        return { start: dates[0], end: dates[6], dates: dates };
+      } else if (currentTab === 'month') {
+        const dates = [];
+        for (let i = 29; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(today.getDate() - i);
+          dates.push(formatDate(d));
+        }
+        return { start: dates[0], end: dates[29], dates: dates };
+      } else if (currentTab === 'custom') {
+        const startDateStr = document.getElementById('custom-start-date').value || formatDate(today);
+        const endDateStr = document.getElementById('custom-end-date').value || formatDate(today);
+        
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+        const dates = [];
+        
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          dates.push(formatDate(new Date(d)));
+        }
+        
+        return { start: startDateStr, end: endDateStr, dates: dates };
+      }
+    }
+
+    // --- 日付変更時の既存データ読込 ---
+    function loadDateLogs() {
+      const selectedDate = document.getElementById('input-date').value;
+      const categories = ['study', 'workout', 'main', 'side', 'rec', 'social', 'penalty'];
+
+      categories.forEach(cat => {
+        const inputElem = document.getElementById(`input-${cat}`);
+        if (inputElem) {
+          const totalForCat = logs
+            .filter(l => l.date === selectedDate && l.category === cat)
+            .reduce((sum, l) => sum + l.minutes, 0);
+          inputElem.value = totalForCat > 0 ? totalForCat : '';
+        }
+      });
+
+      if (currentTab === 'today') renderCharts();
+    }
+
+    // --- ストップウォッチ機能 ---
+    let timerInterval = null;
+    let timerSeconds = 0;
+
+    function toggleTimer() {
+      const btn = document.getElementById('btn-start');
+      const saveBtn = document.getElementById('btn-save-timer');
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        btn.innerText = '再開';
+        btn.classList.replace('bg-rose-600', 'bg-emerald-600');
+        saveBtn.disabled = false;
+        saveBtn.classList.replace('bg-slate-700', 'bg-amber-600');
+        saveBtn.classList.replace('text-slate-400', 'text-white');
+        saveBtn.classList.remove('cursor-not-allowed');
+      } else {
+        timerInterval = setInterval(() => {
+          timerSeconds++;
+          const h = String(Math.floor(timerSeconds / 3600)).padStart(2, '0');
+          const m = String(Math.floor((timerSeconds % 3600) / 60)).padStart(2, '0');
+          const s = String(timerSeconds % 60).padStart(2, '0');
+          document.getElementById('timer-display').innerText = `${h}:${m}:${s}`;
+        }, 1000);
+        btn.innerText = '一時停止';
+        btn.classList.replace('bg-emerald-600', 'bg-rose-600');
+      }
+    }
+
+    function saveTimerLog() {
+      const category = document.getElementById('timer-category').value;
+      const minutes = Math.max(1, Math.round(timerSeconds / 60));
+      const today = new Date().toISOString().split('T')[0];
+
+      logs.push({ date: today, category: category, minutes: minutes });
+      localStorage.setItem('rpg_time_logs', JSON.stringify(logs));
+
+      timerSeconds = 0;
+      document.getElementById('timer-display').innerText = '00:00:00';
+      document.getElementById('btn-save-timer').disabled = true;
+      document.getElementById('btn-save-timer').classList.replace('bg-amber-600', 'bg-slate-700');
+      document.getElementById('btn-start').innerText = '開始';
+
+      loadDateLogs();
+      updatePlayerLevel();
+      alert(`本日分として計測ログ（${minutes}分）を保存しました！`);
+    }
+
+    // --- 日付指定保存 ---
+    function saveManualLogs() {
+      const targetDate = document.getElementById('input-date').value;
+      if (!targetDate) return alert('日付を選択してください。');
+
+      const categories = ['study', 'workout', 'main', 'side', 'rec', 'social', 'penalty'];
+      logs = logs.filter(l => l.date !== targetDate);
+
+      categories.forEach(cat => {
+        const val = parseInt(document.getElementById(`input-${cat}`).value);
+        if (val && val > 0) {
+          logs.push({ date: targetDate, category: cat, minutes: val });
+        }
+      });
+
+      localStorage.setItem('rpg_time_logs', JSON.stringify(logs));
+      renderCharts();
+      updatePlayerLevel();
+      alert(`${targetDate} の記録を保存・更新しました！`);
+    }
+
+    // --- Chart.js グラフ描画 ---
+    let radarChart, barChart, pieChart;
+
+    function renderCharts() {
+      const lvs = getSkillLevels();
+      const range = getDateRange();
+
+      // 1. レーダーチャート（5角形）
+      const ctxRadar = document.getElementById('radarChart');
+      if (ctxRadar) {
+        if (radarChart) radarChart.destroy();
+        radarChart = new Chart(ctxRadar.getContext('2d'), {
+          type: 'radar',
+          data: {
+            labels: ['INT', 'MAIN', 'SIDE', 'STR', 'REC'],
+            datasets: [{
+              data: [lvs.INT.lv, lvs.MAIN.lv, lvs.SIDE.lv, lvs.STR.lv, lvs.REC.lv],
+              backgroundColor: 'rgba(245, 158, 11, 0.25)',
+              borderColor: '#f59e0b',
+              pointBackgroundColor: '#f59e0b'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { r: { min: 0, ticks: { display: false }, grid: { color: '#334155' }, angleLines: { color: '#334155' } } }
+          }
+        });
+      }
+
+      // 2. 期間内のログ抽出と集計
+      const periodLogs = logs.filter(l => l.date >= range.start && l.date <= range.end);
+      const catMinutes = { study:0, workout:0, main:0, side:0, rec:0, social:0, penalty:0 };
+      periodLogs.forEach(l => { if (catMinutes[l.category] !== undefined) catMinutes[l.category] += l.minutes; });
+      
+      const dayCount = range.dates.length || 1;
+      const totalCapacityMinutes = 1440 * dayCount;
+      const loggedTotal = Object.values(catMinutes).reduce((a,b)=>a+b, 0);
+      const otherMinutes = Math.max(0, totalCapacityMinutes - loggedTotal);
+
+      // 3. シェア円グラフ
+      const ctxPie = document.getElementById('pieChart');
+      if (ctxPie) {
+        if (pieChart) pieChart.destroy();
+        pieChart = new Chart(ctxPie.getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: ['勉強', '運動', '本業', '副業', '回復', '交際', 'SNS', 'その他'],
+            datasets: [{
+              data: [
+                catMinutes.study, catMinutes.workout, catMinutes.main, 
+                catMinutes.side, catMinutes.rec, catMinutes.social, 
+                catMinutes.penalty, otherMinutes
+              ],
+              backgroundColor: ['#10b981', '#f97316', '#3b82f6', '#8b5cf6', '#06b6d4', '#ec4899', '#f43f5e', '#64748b']
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+
+      // 4. 積み上げ棒グラフ
+      const ctxBar = document.getElementById('barChart');
+      if (ctxBar) {
+        const barLabels = range.dates.map(d => d.slice(5)); // MM-DD表示
+        const datasets = [
+          { label: '勉強', key: 'study', color: '#10b981' },
+          { label: '運動', key: 'workout', color: '#f97316' },
+          { label: '本業', key: 'main', color: '#3b82f6' },
+          { label: '副業', key: 'side', color: '#8b5cf6' },
+          { label: '回復', key: 'rec', color: '#06b6d4' }
+        ].map(item => ({
+          label: item.label,
+          backgroundColor: item.color,
+          data: range.dates.map(date => {
+            const dayLogs = logs.filter(l => l.date === date && l.category === item.key);
+            return dayLogs.reduce((sum, l) => sum + l.minutes, 0) / 60;
+          })
+        }));
+
+        if (barChart) barChart.destroy();
+        barChart = new Chart(ctxBar.getContext('2d'), {
+          type: 'bar',
+          data: { labels: barLabels, datasets: datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { x: { stacked: true }, y: { stacked: true, max: 24 } },
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+    }
+
+    // 初期起動処理（DOM構築完了後に安全に実行）
+    document.addEventListener('DOMContentLoaded', () => {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const elInputDate = document.getElementById('input-date');
+      const elStartDate = document.getElementById('custom-start-date');
+      const elEndDate = document.getElementById('custom-end-date');
+      const elHeroQuote = document.getElementById('hero-quote');
+
+      if (elInputDate) elInputDate.value = today;
+      if (elStartDate) elStartDate.value = today;
+      if (elEndDate) elEndDate.value = today;
+      if (elHeroQuote) elHeroQuote.innerText = HERO_QUOTES[Math.floor(Math.random() * HERO_QUOTES.length)];
+
+      loadDateLogs();
+      updatePlayerLevel();
+      renderCharts();
+    });
+  </script>
+</body>
+</html>
